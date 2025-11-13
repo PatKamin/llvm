@@ -177,7 +177,14 @@ runs:
   - name: Install perf in version matching the host kernel
     shell: bash
     run: |
+      # Install perf in version matching the host kernel
       echo "::group::install_linux_tools"
+      if [ "$(lsb_release -rs)" = "25.10" ]; then
+        echo "Adding repositories for Ubuntu 25.10 (Questing)"
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ questing main restricted universe multiverse"
+        sudo add-apt-repository -y "deb http://archive.ubuntu.com/ubuntu/ questing-updates main restricted universe multiverse"
+        sudo add-apt-repository -y "deb http://security.ubuntu.com/ubuntu/ questing-security main restricted universe multiverse"
+      fi
       sudo apt-get update
       sudo apt-get install -y linux-tools-$(uname -r)
       echo "::endgroup::"
