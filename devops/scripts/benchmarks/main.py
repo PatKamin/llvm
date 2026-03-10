@@ -17,6 +17,7 @@ from benches.syclbench import *
 from benches.llamacpp import *
 from benches.umf import *
 from benches.benchdnn import OneDnnBench
+from benches.pytorch import PyTorchSuite
 from benches.base import TracingType
 from options import Compare, options
 from output_markdown import generate_markdown
@@ -295,6 +296,7 @@ def main(directory, additional_env_vars, compare_names, filter, execution_stats)
         UMFSuite(),
         GromacsBench(),
         OneDnnBench(),
+        PyTorchSuite(),
     ]
 
     # Collect metadata from all benchmarks without setting them up
