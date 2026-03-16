@@ -31,68 +31,17 @@ class PyTorchSuite(Suite):
         if options.sycl is None:
             return
 
-        if self._project is None:
-            self._project = GitProject(
-                self.git_url(),
-                self.git_ref(),
-                Path(options.workdir),
-                "pytorch-benchmarks",
-                use_installdir=False,
-            )
-
-        venv_dir = self._project.build_dir / "venv"
-        python = str(venv_dir / "bin" / "python")
-        if not venv_dir.exists():
-            self._project.build_dir.mkdir(parents=True, exist_ok=True)
-            run(["python3", "-m", "venv", str(venv_dir)])
-            run([python, "-m", "pip", "install", "pytest"])
-            run(
-                [
-                    python,
-                    "-m",
-                    "pip",
-                    "install",
-                    "-r",
-                    "requirements-build.txt",
-                    "-r",
-                    "requirements.txt",
-                ],
-                cwd=self._project.src_dir,
-            )
-
-        env_vars = {
-            "USE_ONEMKL_XPU": "OFF",
-            "TORCH_XPU_ARCH_LIST": "bmg",
-            "CC": "gcc",
-            "CXX": "g++",
-            "USE_KINETO": "OFF",
-            "USE_XPU": "1",
-            "USE_CUDA": "0",
-            "BUILD_TEST": "0",
-            "CMPLR_ROOT": options.sycl,
-            "CPATH": f"{options.sycl}/include",
-            "OPENCLROOT": options.sycl,
-        }
-        run(
-            [python, "-m", "pip", "install", "--no-build-isolation", "-v", "-e", "."],
-            env_vars=env_vars,
-            cwd=self._project.src_dir,
-            add_sycl=True,
-        )
-
     def benchmarks(self) -> list[Benchmark]:
-        return [
-            MockPyTorchBenchmark(self, "KernelSubmitSingleQueue", "us"),
-            MockPyTorchBenchmark(self, "KernelSubmitMultiQueue", "us"),
-            MockPyTorchBenchmark(self, "KernelSubmitMemoryReuse", "us"),
-        ]
+        if options.pytorch is not None:
+            return [
+                PyTorchBenchmark(self, "KernelSubmitSingleQueue", "us"),
+                PyTorchBenchmark(self, "KernelSubmitMultiQueue", "us"),
+                PyTorchBenchmark(self, "KernelSubmitMemoryReuse", "us"),
+            ]
 
 
-class MockPyTorchBenchmark(Benchmark):
-    """Mock PyTorch benchmark that returns fixed fake results without requiring
-    the actual PyTorch project to be cloned or built."""
-
-    _MOCK_VALUE = 42.0
+class PyTorchBenchmark(Benchmark):
+    """PyTorch benchmark that runs benchmark scripts from a pre-built PyTorch repository."""
 
     def __init__(self, suite: PyTorchSuite, bench_name: str, unit: str = "us"):
         super().__init__(suite)
@@ -100,26 +49,32 @@ class MockPyTorchBenchmark(Benchmark):
         self._unit = unit
 
     def name(self) -> str:
-        return f"pytorch mock {self._bench_name}"
+        return f"pytorch {self._bench_name}"
 
     def display_name(self) -> str:
-        return f"Mock {self._bench_name}"
-
-    def description(self) -> str:
-        return (
-            f"Mock PyTorch benchmark for {self._bench_name}. "
-            "Returns a fixed value and is used for testing the benchmark infrastructure "
-            "without requiring a real PyTorch build."
-        )
+        return self._bench_name
 
     def get_tags(self) -> list[str]:
-        return ["pytorch", "mock"]
+        return ["pytorch"]
 
     def lower_is_better(self) -> bool:
         return True
 
     def enabled(self) -> bool:
-        return options.sycl is not None
+        return options.sycl is not None and options.pytorch is not None
+
+    @property
+    def _pytorch_root(self) -> Path:
+        return Path(options.pytorch)
+
+    @property
+    def _python(self) -> str:
+        venv_python = self._pytorch_root / "venv" / "bin" / "python"
+        return str(venv_python) if venv_python.exists() else "python3"
+
+    @property
+    def _bench_script(self) -> Path:
+        return self._pytorch_root / "benchmarks" / f"{self._bench_name}.py"
 
     def run(
         self,
@@ -127,11 +82,16 @@ class MockPyTorchBenchmark(Benchmark):
         run_trace: TracingType = TracingType.NONE,
         force_trace: bool = False,
     ) -> list[Result]:
+        command = [self._python, str(self._bench_script)]
+        result_str = self.run_bench(
+            command, env_vars or {}, run_trace=run_trace, force_trace=force_trace
+        )
+        value = float(result_str.strip())
         return [
             Result(
                 label=self.name(),
-                value=self._MOCK_VALUE,
-                command=["mock"],
+                value=value,
+                command=command,
                 env=env_vars or {},
                 unit=self._unit,
             )

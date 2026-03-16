@@ -528,6 +528,12 @@ if __name__ == "__main__":
     parser.add_argument("--ur", type=str, help="UR install prefix path", default=None)
     parser.add_argument("--umf", type=str, help="UMF install prefix path", default=None)
     parser.add_argument(
+        "--pytorch",
+        type=str,
+        help="Path to the built PyTorch repository containing benchmarks.",
+        default=None,
+    )
+    parser.add_argument(
         "--adapter",
         type=str,
         help="Unified Runtime adapter to use.",
@@ -828,6 +834,7 @@ if __name__ == "__main__":
     options.dry_run = args.dry_run
     options.list_benchmarks = args.list
     options.umf = args.umf
+    options.pytorch = args.pytorch
     options.iterations_stddev = args.iterations_stddev
     options.stddev_threshold = args.stddev_threshold
     options.build_igc = args.build_igc

@@ -54,6 +54,7 @@ class Options:
     ur: str = None
     ur_adapter: str = None
     umf: str = None
+    pytorch: str = None
     offline: bool = False
     redownload: bool = False
     benchmark_cwd: str = "INVALID"
